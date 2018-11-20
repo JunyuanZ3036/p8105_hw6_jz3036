@@ -8,6 +8,7 @@ date: 2018-11-17
 * Import necessary packages.
 ```{r import_packages}
 library(tidyverse)
+library(modelr)
 ```
 
 # Problem 1
@@ -160,18 +161,61 @@ summary(step10)
 
 Final model I chose to use:
 ```{r lm_model}
-fit_lm_model = lm(bwt ~ babysex + bhead + blength + delwt + gaweeks + mheight +
+fit_lm_model_1 = lm(bwt ~ babysex + bhead + blength + delwt + gaweeks + mheight +
                     mrace + ppwt + smoken, data = data_p2_reg)
-summary(fit_lm_model)
+summary(fit_lm_model_1)
 ```
-
+Plot of model residuals against fitted values:
 ```{r resid_pred_plot}
 data_p2_reg %>% 
-  modelr::add_residuals(fit_lm_model) %>%
-  modelr::add_predictions(fit_lm_model) %>% 
+  modelr::add_residuals(fit_lm_model_1) %>%
+  modelr::add_predictions(fit_lm_model_1) %>% 
   ggplot(aes(x = pred, y = resid)) +
   geom_point() +
   labs(title = 'Residuals vs. Fitted Value') +
   geom_hline(yintercept = 0, alpha = 1, color = 'red')
 ```
 
+* Compare your model to two others:
+* One using length at birth and gestational age as predictors (main effects only):
+```{r lm_model_blength_gaweeks}
+fit_lm_model_2 = lm(bwt ~ blength + gaweeks, data = data_p2_reg)
+summary(fit_lm_model_2)
+```
+* One using head circumference, length, sex, and all interactions (including the three-way interaction) between these:
+```{r lm_model_bhead_blength_babysex}
+fit_lm_model_3 = lm(bwt ~ bhead + blength + babysex +
+                      bhead * blength + blength * babysex + bhead * babysex +
+                      bhead * blength * babysex, data = data_p2_reg)
+summary(fit_lm_model_3)
+```
+
+Cross Validation:
+```{r build_cv}
+cv_df = 
+  crossv_mc(data_p2_reg, 100)
+```
+
+```{r run_cv}
+cv_df = 
+  cv_df %>% 
+  mutate(fit_lm_model_1 = map(train, ~lm(bwt ~ 
+    babysex + bhead + blength + delwt + gaweeks + mheight + mrace + ppwt + smoken, data = .x)),
+         fit_lm_model_2 = map(train, ~lm(bwt ~ blength + gaweeks, data = .x)),
+         fit_lm_model_3 = map(train, ~lm(bwt ~ bhead + blength + babysex + bhead * blength + blength * babysex + bhead * babysex + bhead * blength * babysex, data = .x))) %>%
+           
+  mutate(rmse_model_1 = map2_dbl(fit_lm_model_1, test, ~rmse(model = .x, data = .y)),
+         rmse_model_2 = map2_dbl(fit_lm_model_2, test, ~rmse(model = .x, data = .y)),
+         rmse_model_3 = map2_dbl(fit_lm_model_3, test, ~rmse(model = .x, data = .y)))
+```
+
+```{r violin_plot}
+cv_df %>% 
+  select(starts_with("rmse")) %>% 
+  gather(key = model, value = rmse) %>% 
+  mutate(model = str_replace(model, "rmse_", ""),
+         model = fct_inorder(model)) %>% 
+  ggplot(aes(x = model, y = rmse)) + geom_violin()
+```
+
+As shown by the violin plot above, the model that I chose (model_1) has the lowest RMSE. Among these three models, I would probably choose model_1 as my fitting model.
