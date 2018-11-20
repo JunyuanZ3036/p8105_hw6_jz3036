@@ -128,3 +128,50 @@ data_p2_reg =
 data_p2_reg
 ```
 Here changing number representatives into the real meaning words for better seeing the result without refering back to what those representives stand for, then convert into factors.
+
+
+* Propose a regression model for birthweight. This model may be based on a hypothesized structure for the factors that underlying birthweight, on a data-driven model-building process, or a combination of the two. Describe your modeling process and show a plot of model residuals against fitted values – use add_predictions and add_residuals in making this plot.
+
+Try the Backward elimination. Include all the variables first, then get rid of the one with highest p-value one by one.
+```{r model_select_bw, eval = FALSE}
+mult.fit = lm(bwt ~ ., data = data_p2_reg)
+summary(mult.fit)
+step1 = update(mult.fit, . ~ . -pnumlbw)
+summary(step1)
+step2 = update(step1, . ~ . -pnumsga)
+summary(step2)
+step3 = update(step2, . ~ . -wtgain)
+summary(step3)
+step4 = update(step3, . ~ . -malform)
+summary(step4)
+step5 = update(step4, . ~ . -ppbmi)
+summary(step5)
+step6 = update(step5, . ~ . -momage)
+summary(step6)
+step7 = update(step6, . ~ . -frace)
+summary(step7)
+step8 = update(step7, . ~ . -menarche)
+summary(step8)
+step9 = update(step8, . ~ . -fincome)
+summary(step9)
+step10 = update(step9, . ~ . -parity)
+summary(step10)
+```
+
+Final model I chose to use:
+```{r lm_model}
+fit_lm_model = lm(bwt ~ babysex + bhead + blength + delwt + gaweeks + mheight +
+                    mrace + ppwt + smoken, data = data_p2_reg)
+summary(fit_lm_model)
+```
+
+```{r resid_pred_plot}
+data_p2_reg %>% 
+  modelr::add_residuals(fit_lm_model) %>%
+  modelr::add_predictions(fit_lm_model) %>% 
+  ggplot(aes(x = pred, y = resid)) +
+  geom_point() +
+  labs(title = 'Residuals vs. Fitted Value') +
+  geom_hline(yintercept = 0, alpha = 1, color = 'red')
+```
+
